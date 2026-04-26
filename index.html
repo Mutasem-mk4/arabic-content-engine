@@ -98,12 +98,18 @@ function Toast({msg,type,onClose}){
 
 /* ═══════ Setup Screen ═══════ */
 function SetupScreen({onSave}){
-  const[key,setKey]=useState('');
+  const[key,setKey]=useState(()=>localStorage.getItem(STORE_KEY)||'');
+  const[url,setUrl]=useState(()=>localStorage.getItem('muharrir_base_url')||'https://api.anthropic.com/v1/messages');
+  const[model,setModel]=useState(()=>localStorage.getItem('muharrir_model')||'claude-opus-4-7');
+  const[showAdvanced,setShowAdvanced]=useState(false);
+
   const submit=()=>{
     const k=key.trim();
-    if(k.length<10)return;
+    if(k.length<5)return;
     localStorage.setItem(STORE_KEY,k);
-    onSave(k);
+    localStorage.setItem('muharrir_base_url',url.trim());
+    localStorage.setItem('muharrir_model',model.trim());
+    onSave(k, url.trim(), model.trim());
   };
   return(
     <div className="min-h-screen flex items-center justify-center p-4 animate-slide-up">
@@ -111,24 +117,57 @@ function SetupScreen({onSave}){
         <div className="text-4xl mb-2">⚡</div>
         <h1 className="text-2xl font-bold text-gold mb-1">Muharrir</h1>
         <p className="text-gold/70 text-sm mb-8 font-medium" style={{fontFamily:'system-ui'}}>محرّر المحتوى العربي</p>
-        <div dir="rtl" className="mb-3">
-          <label className="block text-sm text-dim mb-2 text-right">أدخل مفتاح Anthropic API الخاص بك</label>
+        
+        <div dir="rtl" className="mb-4">
+          <label className="block text-sm text-dim mb-2 text-right">أدخل مفتاح الـ API الخاص بك</label>
           <input
             type="password"
             value={key}
             onChange={e=>setKey(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            placeholder="sk-ant-api03-..."
+            placeholder="sk-..."
             dir="ltr"
             className="w-full bg-[#0F0F0F] border border-sborder rounded-xl px-4 py-3 text-sm text-white placeholder-dim/50 focus:border-gold transition-colors font-mono"
           />
-          <p className="text-xs text-dim/60 mt-2 text-right">مفتاحك يبقى في متصفحك فقط ولا يُرسل لأي خادم</p>
         </div>
+
+        <div dir="rtl" className="mb-4">
+          <button onClick={()=>setShowAdvanced(!showAdvanced)} className="text-xs text-dim hover:text-gold transition-colors">
+            {showAdvanced?'إخفاء الإعدادات المتقدمة ▲':'إعدادات متقدمة (API مخصص / Proxy) ▼'}
+          </button>
+        </div>
+
+        {showAdvanced && (
+          <div dir="rtl" className="mb-4 space-y-4 p-4 border border-sborder/50 bg-[#0a0a0a] rounded-xl text-right">
+            <div>
+              <label className="block text-xs text-dim mb-1">رابط الـ API (Endpoint)</label>
+              <input
+                type="text"
+                value={url}
+                onChange={e=>setUrl(e.target.value)}
+                dir="ltr"
+                className="w-full bg-[#1A1A1A] border border-sborder rounded-lg px-3 py-2 text-xs text-white focus:border-gold transition-colors font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-dim mb-1">اسم الموديل (Model)</label>
+              <input
+                type="text"
+                value={model}
+                onChange={e=>setModel(e.target.value)}
+                dir="ltr"
+                className="w-full bg-[#1A1A1A] border border-sborder rounded-lg px-3 py-2 text-xs text-white focus:border-gold transition-colors font-mono"
+              />
+            </div>
+          </div>
+        )}
+
         <button
           onClick={submit}
-          disabled={key.trim().length<10}
-          className="w-full mt-4 bg-gold hover:bg-gold-h disabled:opacity-30 disabled:cursor-not-allowed text-black font-bold py-3 rounded-xl transition-all text-lg"
+          disabled={key.trim().length<5}
+          className="w-full mt-2 bg-gold hover:bg-gold-h disabled:opacity-30 disabled:cursor-not-allowed text-black font-bold py-3 rounded-xl transition-all text-lg"
         >ابدأ</button>
+        <p className="text-xs text-dim/60 mt-4">مفتاحك يبقى في متصفحك فقط ولا يُرسل لأي خادم</p>
       </div>
     </div>
   );
@@ -331,6 +370,8 @@ function ResultsScreen({loading,results,rawFallback,selectedDialects,selectedPla
 function App(){
   const[screen,setScreen]=useState(()=>localStorage.getItem(STORE_KEY)?'input':'setup');
   const[apiKey,setApiKey]=useState(()=>localStorage.getItem(STORE_KEY)||'');
+  const[baseUrl,setBaseUrl]=useState(()=>localStorage.getItem('muharrir_base_url')||'https://api.anthropic.com/v1/messages');
+  const[customModel,setCustomModel]=useState(()=>localStorage.getItem('muharrir_model')||'claude-opus-4-7');
   const[loading,setLoading]=useState(false);
   const[results,setResults]=useState(null);
   const[rawFallback,setRawFallback]=useState('');
@@ -340,7 +381,12 @@ function App(){
 
   const showToast=(msg,type='error')=>setToast({msg,type});
 
-  const handleSaveKey=(key)=>{setApiKey(key);setScreen('input')};
+  const handleSaveKey=(key, url, model)=>{
+    setApiKey(key);
+    setBaseUrl(url);
+    setCustomModel(model);
+    setScreen('input');
+  };
 
   const handleClearKey=()=>{
     localStorage.removeItem(STORE_KEY);
@@ -361,16 +407,27 @@ function App(){
     const userMsg=`حوّل هذا المحتوى:\n\n${content}\n\nاللهجات المطلوبة: ${dialectNames}\nالمنصات المطلوبة: ${platformNames}`;
 
     try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
+      // Optional headers (like anthropic-version) might be rejected by some generic proxies
+      // but are required by Anthropic. We send them anyway.
+      const headers = {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      };
+      
+      // Support Authorization header for proxies (e.g. OpenRouter) vs x-api-key for native Anthropic
+      if(baseUrl.includes('anthropic.com')) {
+        headers['x-api-key'] = apiKey;
+      } else {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['x-api-key'] = apiKey; // fallback
+      }
+
+      const res=await fetch(baseUrl,{
         method:'POST',
-        headers:{
-          'Content-Type':'application/json',
-          'x-api-key':apiKey,
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
-        },
+        headers: headers,
         body:JSON.stringify({
-          model:'claude-opus-4-7',
+          model: customModel,
           max_tokens:8000,
           thinking:{type:'adaptive'},
           output_config:{effort:'max'},
@@ -382,8 +439,8 @@ function App(){
       if(!res.ok){
         try {
           const errData = await res.json();
-          const apiError = errData?.error?.message || `Error ${res.status}`;
-          showToast(`Anthropic API Error: ${apiError}`, 'error');
+          const apiError = errData?.error?.message || errData?.message || `Error ${res.status}`;
+          showToast(`API Error: ${apiError}`, 'error');
           console.error("API Error Response:", errData);
         } catch(e) {
           showToast(`HTTP Error ${res.status}: حدث خطأ غير متوقع`,'error');
@@ -394,7 +451,17 @@ function App(){
       }
 
       const data=await res.json();
-      const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+      
+      // Handle OpenRouter/OpenAI format if used through a proxy, else default Anthropic
+      let txt = '';
+      if(data.choices && data.choices[0]?.message?.content) {
+        txt = data.choices[0].message.content; // OpenAI / Proxy format
+      } else if (data.content) {
+        txt = data.content.filter(b=>b.type==='text').map(b=>b.text).join(''); // Anthropic format
+      } else {
+        txt = JSON.stringify(data);
+      }
+
       let cleaned=txt.trim();
       if(cleaned.startsWith('```'))cleaned=cleaned.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
 
