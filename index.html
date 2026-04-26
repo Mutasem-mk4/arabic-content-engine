@@ -371,16 +371,23 @@ function App(){
         },
         body:JSON.stringify({
           model:'claude-opus-4-7',
-          max_tokens:16000,
-          thinking:{type:'enabled',budget_tokens:8000},
+          max_tokens:8000,
+          thinking:{type:'adaptive'},
+          output_config:{effort:'max'},
           system:SYS_PROMPT,
           messages:[{role:'user',content:userMsg}]
         })
       });
 
       if(!res.ok){
-        if(res.status===401||res.status===403){showToast('مفتاح API غير صحيح، تحقق منه','error')}
-        else{showToast('حدث خطأ، حاول مجدداً','error')}
+        try {
+          const errData = await res.json();
+          const apiError = errData?.error?.message || `Error ${res.status}`;
+          showToast(`Anthropic API Error: ${apiError}`, 'error');
+          console.error("API Error Response:", errData);
+        } catch(e) {
+          showToast(`HTTP Error ${res.status}: حدث خطأ غير متوقع`,'error');
+        }
         setLoading(false);
         setScreen('input');
         return;
@@ -399,7 +406,7 @@ function App(){
         showToast('تعذر تحليل الرد، يُعرض كنص خام','warning');
       }
     }catch(err){
-      showToast('حدث خطأ في الاتصال، حاول مجدداً','error');
+      showToast(`Network/CORS Error: ${err.message}`,'error');
       setScreen('input');
     }finally{
       setLoading(false);
