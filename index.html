@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>محرر — Muharrir</title>
+<meta name="description" content="Transform Arabic content into dialect-specific social media assets"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{colors:{gold:'#D4A843','gold-h':'#E0B85C',surface:'#1A1A1A',sborder:'#2A2A2A',dim:'#888888'},animation:{'slide-up':'slideUp .4s ease-out','pulse-slow':'pulseSlow 2s ease-in-out infinite'},keyframes:{slideUp:{'0%':{opacity:'0',transform:'translateY(20px)'},'100%':{opacity:'1',transform:'translateY(0)'}},pulseSlow:{'0%,100%':{opacity:'1'},'50%':{opacity:'.4'}}}}}}
+</script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0F0F0F;color:#fff;font-family:system-ui,-apple-system,sans-serif;min-height:100vh}
+textarea:focus,input:focus{outline:none}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+::selection{background:#D4A843;color:#000}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useCallback,useRef}=React;
+
+const SYS_PROMPT=`You are a master Arabic dialect linguist and viral content strategist. 
+You understand the soul, slang, rhythm, and cultural subtext of every major Arabic dialect — not just the words, but the feeling they carry.
+
+Your task is to transform Arabic content into short-form social media assets, each perfectly calibrated for a specific dialect and platform.
+
+DIALECT KNOWLEDGE:
+- Gulf (خليجي): confident, generous, direct. Slang: والله، خوي، يبيلك، شنو. Dry humor, warm rhythm.
+- Egyptian (مصري): witty, theatrical, punchy. Slang: يسطا، بجد، ماشي، إيه ده. Fast rhythm, sarcasm lands.
+- Levantine (شامي): poetic, cool, ironic. Slang: شو، كتير، هلق، يلا. Softer sounds, values elegance.
+- Maghrebi (مغربي): bold, urban, code-switches Arabic/French. Slang: خويا، بزاف، واش، دابا. Dense, authenticity matters.
+
+PLATFORM KNOWLEDGE:
+- tiktok_hook: First 3 seconds, max 15 words, opens a loop, NEVER start with a greeting
+- tweet: Max 200 chars, ends with question or provocation
+- instagram_caption: 3-4 sentences, ends with CTA + 3 relevant hashtags
+- linkedin_post: 4-5 sentences, professional insight-driven tone
+
+RULES:
+1. Never translate — LOCALIZE. Each dialect must feel native, not translated.
+2. TikTok hooks must create instant curiosity or tension.
+3. Slang must be current (2024-2026).
+4. Think deeply before writing. Find the most culturally resonant angle first.
+
+OUTPUT: Respond ONLY with a single valid JSON object. No markdown, no preamble.
+
+{
+  "analysis": {
+    "core_message": "single most powerful idea in the content",
+    "emotion": "primary emotion this should trigger",
+    "posting_advice": "which output to post first and why"
+  },
+  "outputs": {
+    "gulf": { "tiktok_hook": "", "tweet": "", "instagram_caption": "", "linkedin_post": "" },
+    "egyptian": { "tiktok_hook": "", "tweet": "", "instagram_caption": "", "linkedin_post": "" },
+    "levantine": { "tiktok_hook": "", "tweet": "", "instagram_caption": "", "linkedin_post": "" },
+    "maghrebi": { "tiktok_hook": "", "tweet": "", "instagram_caption": "", "linkedin_post": "" }
+  }
+}
+
+Only include dialect keys the user requested. Only include platform keys the user requested.`;
+
+const DIALECTS=[
+  {key:'gulf',label:'خليجي',flag:'🇸🇦'},
+  {key:'egyptian',label:'مصري',flag:'🇪🇬'},
+  {key:'levantine',label:'شامي',flag:'🇱🇧'},
+  {key:'maghrebi',label:'مغربي',flag:'🇲🇦'}
+];
+const PLATFORMS=[
+  {key:'tiktok_hook',label:'TikTok Hook',icon:'▶'},
+  {key:'tweet',label:'تغريدة',icon:'𝕏'},
+  {key:'instagram_caption',label:'Instagram',icon:'◎'},
+  {key:'linkedin_post',label:'LinkedIn',icon:'in'}
+];
+const D_LABELS={gulf:'خليجي',egyptian:'مصري',levantine:'شامي',maghrebi:'مغربي'};
+const P_LABELS={tiktok_hook:'TikTok Hook',tweet:'تغريدة',instagram_caption:'Instagram',linkedin_post:'LinkedIn'};
+const STORE_KEY='muharrir_api_key';
+
+/* ═══════ Toast ═══════ */
+function Toast({msg,type,onClose}){
+  useEffect(()=>{const t=setTimeout(onClose,3500);return()=>clearTimeout(t)},[]);
+  const bg=type==='error'?'bg-red-900/90 border-red-700':type==='warning'?'bg-yellow-900/90 border-yellow-700':'bg-green-900/90 border-green-700';
+  return(
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+      <div className={`${bg} border rounded-xl px-6 py-3 text-sm shadow-2xl flex items-center gap-3`} dir="rtl">
+        <span>{type==='error'?'⚠':'ℹ'}</span><span>{msg}</span>
+        <button onClick={onClose} className="mr-2 text-white/60 hover:text-white">✕</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ Setup Screen ═══════ */
+function SetupScreen({onSave}){
+  const[key,setKey]=useState('');
+  const submit=()=>{
+    const k=key.trim();
+    if(k.length<10)return;
+    localStorage.setItem(STORE_KEY,k);
+    onSave(k);
+  };
+  return(
+    <div className="min-h-screen flex items-center justify-center p-4 animate-slide-up">
+      <div className="bg-surface border border-sborder rounded-2xl p-8 w-full max-w-md text-center">
+        <div className="text-4xl mb-2">⚡</div>
+        <h1 className="text-2xl font-bold text-gold mb-1">Muharrir</h1>
+        <p className="text-gold/70 text-sm mb-8 font-medium" style={{fontFamily:'system-ui'}}>محرّر المحتوى العربي</p>
+        <div dir="rtl" className="mb-3">
+          <label className="block text-sm text-dim mb-2 text-right">أدخل مفتاح Anthropic API الخاص بك</label>
+          <input
+            type="password"
+            value={key}
+            onChange={e=>setKey(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&submit()}
+            placeholder="sk-ant-api03-..."
+            dir="ltr"
+            className="w-full bg-[#0F0F0F] border border-sborder rounded-xl px-4 py-3 text-sm text-white placeholder-dim/50 focus:border-gold transition-colors font-mono"
+          />
+          <p className="text-xs text-dim/60 mt-2 text-right">مفتاحك يبقى في متصفحك فقط ولا يُرسل لأي خادم</p>
+        </div>
+        <button
+          onClick={submit}
+          disabled={key.trim().length<10}
+          className="w-full mt-4 bg-gold hover:bg-gold-h disabled:opacity-30 disabled:cursor-not-allowed text-black font-bold py-3 rounded-xl transition-all text-lg"
+        >ابدأ</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ Chip ═══════ */
+function Chip({label,flag,icon,active,onClick}){
+  return(
+    <button onClick={onClick} className={`px-4 py-2 rounded-full border text-sm font-medium transition-all flex items-center gap-2
+      ${active?'bg-gold/20 border-gold text-gold':'bg-transparent border-sborder text-dim hover:border-dim hover:text-white'}`}>
+      {flag&&<span>{flag}</span>}
+      {icon&&<span className="text-xs" dir="ltr">{icon}</span>}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/* ═══════ Input Screen ═══════ */
+function InputScreen({onGenerate,onClearKey}){
+  const[content,setContent]=useState('');
+  const[dials,setDials]=useState([]);
+  const[plats,setPlats]=useState([]);
+  const toggle=(arr,set,key)=>set(arr.includes(key)?arr.filter(x=>x!==key):[...arr,key]);
+  const valid=content.trim().length>10&&dials.length>0&&plats.length>0;
+
+  return(
+    <div className="min-h-screen animate-slide-up">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-sborder/50">
+        <button onClick={onClearKey} className="text-dim hover:text-white transition-colors text-lg" title="إعدادات">⚙</button>
+        <h1 className="text-lg font-bold text-gold">محرّر</h1>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        {/* Textarea */}
+        <div dir="rtl" className="mb-6">
+          <textarea
+            value={content}
+            onChange={e=>setContent(e.target.value)}
+            placeholder="الصق محتواك هنا — مقال، سكريبت فيديو، أو بوست طويل..."
+            className="w-full bg-surface border border-sborder rounded-2xl p-5 text-white text-base leading-[1.8] resize-y focus:border-gold transition-colors placeholder-dim/40 min-h-[200px] md:min-h-[260px]"
+          />
+          <p className="text-xs text-dim/50 mt-1 text-left font-mono" dir="ltr">{content.length} chars</p>
+        </div>
+
+        {/* Dialects */}
+        <div className="mb-5" dir="rtl">
+          <p className="text-xs text-dim uppercase tracking-wider mb-3 text-right font-medium">اللهجات</p>
+          <div className="flex flex-wrap gap-2">
+            {DIALECTS.map(d=>(
+              <Chip key={d.key} label={d.label} flag={d.flag} active={dials.includes(d.key)} onClick={()=>toggle(dials,setDials,d.key)}/>
+            ))}
+          </div>
+        </div>
+
+        {/* Platforms */}
+        <div className="mb-8" dir="rtl">
+          <p className="text-xs text-dim uppercase tracking-wider mb-3 text-right font-medium">المنصات</p>
+          <div className="flex flex-wrap gap-2">
+            {PLATFORMS.map(p=>(
+              <Chip key={p.key} label={p.label} icon={p.icon} active={plats.includes(p.key)} onClick={()=>toggle(plats,setPlats,p.key)}/>
+            ))}
+          </div>
+        </div>
+
+        {/* Generate */}
+        <button
+          onClick={()=>valid&&onGenerate(content,dials,plats)}
+          disabled={!valid}
+          className="w-full bg-gold hover:bg-gold-h disabled:opacity-30 disabled:cursor-not-allowed text-black font-bold py-4 rounded-2xl transition-all text-lg"
+        >حوّل المحتوى ✦</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ Platform Card ═══════ */
+function PlatformCard({platformKey,text}){
+  const[copied,setCopied]=useState(false);
+  const meta=PLATFORMS.find(p=>p.key===platformKey)||{icon:'',label:platformKey};
+  const copy=()=>{
+    navigator.clipboard.writeText(text).then(()=>{
+      setCopied(true);
+      setTimeout(()=>setCopied(false),2000);
+    });
+  };
+  return(
+    <div className="bg-surface border border-sborder rounded-2xl overflow-hidden hover:border-dim/50 transition-colors">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-sborder/60">
+        <span className="text-xs font-semibold text-dim uppercase tracking-wider flex items-center gap-2" dir="ltr">
+          <span>{meta.icon}</span>{meta.label}
+        </span>
+        <button onClick={copy} className={`text-xs px-3 py-1 rounded-lg transition-all ${copied?'bg-green-900/50 text-green-400':'bg-white/5 text-dim hover:text-white'}`}>
+          {copied?'تم النسخ ✓':'📋 نسخ'}
+        </button>
+      </div>
+      <div dir="rtl" lang="ar" className="p-4 text-white text-base leading-[1.8] whitespace-pre-wrap">{text}</div>
+    </div>
+  );
+}
+
+/* ═══════ Results Screen ═══════ */
+function ResultsScreen({loading,results,rawFallback,selectedDialects,selectedPlatforms,onBack}){
+  const[activeTab,setActiveTab]=useState(selectedDialects[0]||'');
+
+  // Loading state
+  if(loading){
+    return(
+      <div className="min-h-screen flex flex-col items-center justify-center gap-6 animate-slide-up">
+        <div className="w-10 h-10 border-2 border-sborder border-t-gold rounded-full animate-spin"/>
+        <p className="text-xl text-white animate-pulse-slow" dir="rtl">جاري التفكير...</p>
+        <p className="text-sm text-dim">Deep cultural reasoning — 15-30s</p>
+      </div>
+    );
+  }
+
+  // Raw fallback
+  if(rawFallback&&!results){
+    return(
+      <div className="min-h-screen animate-slide-up">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-sborder/50">
+          <button onClick={onBack} className="text-dim hover:text-white transition-colors">←</button>
+          <h1 className="text-lg font-bold text-gold">محرّر</h1>
+        </div>
+        <div className="max-w-3xl mx-auto px-4 py-8">
+          <div className="bg-surface border border-sborder rounded-2xl p-5">
+            <p className="text-sm text-dim mb-3" dir="rtl">تعذر تحليل الرد — النص الخام:</p>
+            <pre className="text-white text-sm whitespace-pre-wrap leading-relaxed" dir="rtl">{rawFallback}</pre>
+          </div>
+          <button onClick={onBack} className="mt-6 w-full border border-sborder text-dim hover:text-white hover:border-dim py-3 rounded-xl transition-all">تحويل جديد</button>
+        </div>
+      </div>
+    );
+  }
+
+  if(!results)return null;
+
+  const{analysis,outputs}=results;
+  const availableDialects=selectedDialects.filter(d=>outputs&&outputs[d]);
+
+  return(
+    <div className="min-h-screen animate-slide-up">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-sborder/50">
+        <button onClick={onBack} className="text-dim hover:text-white transition-colors text-sm flex items-center gap-1">← رجوع</button>
+        <h1 className="text-lg font-bold text-gold">محرّر</h1>
+      </div>
+
+      <div className="max-w-3xl mx-auto px-4 py-6">
+        {/* Dialect Tabs */}
+        {availableDialects.length>1&&(
+          <div className="flex border-b border-sborder mb-6 overflow-x-auto" dir="rtl">
+            {availableDialects.map(d=>(
+              <button key={d} onClick={()=>setActiveTab(d)}
+                className={`px-5 py-3 text-sm font-semibold transition-all border-b-2 whitespace-nowrap
+                  ${activeTab===d?'border-gold text-white':'border-transparent text-dim hover:text-white'}`}
+              >{D_LABELS[d]}</button>
+            ))}
+          </div>
+        )}
+
+        {/* Platform Cards */}
+        {outputs&&outputs[activeTab]&&(
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            {selectedPlatforms.filter(p=>outputs[activeTab][p]).map(p=>(
+              <PlatformCard key={`${activeTab}-${p}`} platformKey={p} text={outputs[activeTab][p]}/>
+            ))}
+          </div>
+        )}
+
+        {/* Analysis Card */}
+        {analysis&&(
+          <div className="bg-gold/5 border border-gold/20 rounded-2xl p-5 mb-6" dir="rtl">
+            <p className="text-xs text-gold uppercase tracking-wider mb-4 font-semibold">التحليل الاستراتيجي</p>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-dim mb-1">الفكرة الأساسية</p>
+                <p className="text-white text-sm leading-relaxed">{analysis.core_message}</p>
+              </div>
+              <div>
+                <p className="text-xs text-dim mb-1">المشاعر المستهدفة</p>
+                <p className="text-white text-sm leading-relaxed">{analysis.emotion}</p>
+              </div>
+              <div>
+                <p className="text-xs text-dim mb-1">نصيحة النشر</p>
+                <p className="text-white text-sm leading-relaxed">{analysis.posting_advice}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* New transform */}
+        <button onClick={onBack} className="w-full border border-sborder text-dim hover:text-gold hover:border-gold py-3 rounded-xl transition-all font-medium">تحويل جديد</button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════ Main App ═══════ */
+function App(){
+  const[screen,setScreen]=useState(()=>localStorage.getItem(STORE_KEY)?'input':'setup');
+  const[apiKey,setApiKey]=useState(()=>localStorage.getItem(STORE_KEY)||'');
+  const[loading,setLoading]=useState(false);
+  const[results,setResults]=useState(null);
+  const[rawFallback,setRawFallback]=useState('');
+  const[selDialects,setSelDialects]=useState([]);
+  const[selPlatforms,setSelPlatforms]=useState([]);
+  const[toast,setToast]=useState(null);
+
+  const showToast=(msg,type='error')=>setToast({msg,type});
+
+  const handleSaveKey=(key)=>{setApiKey(key);setScreen('input')};
+
+  const handleClearKey=()=>{
+    localStorage.removeItem(STORE_KEY);
+    setApiKey('');
+    setScreen('setup');
+  };
+
+  const handleGenerate=async(content,dialects,platforms)=>{
+    setSelDialects(dialects);
+    setSelPlatforms(platforms);
+    setLoading(true);
+    setResults(null);
+    setRawFallback('');
+    setScreen('results');
+
+    const dialectNames=dialects.map(d=>D_LABELS[d]).join('، ');
+    const platformNames=platforms.map(p=>P_LABELS[p]).join('، ');
+    const userMsg=`حوّل هذا المحتوى:\n\n${content}\n\nاللهجات المطلوبة: ${dialectNames}\nالمنصات المطلوبة: ${platformNames}`;
+
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key':apiKey,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:'claude-opus-4-7',
+          max_tokens:16000,
+          thinking:{type:'enabled',budget_tokens:8000},
+          system:SYS_PROMPT,
+          messages:[{role:'user',content:userMsg}]
+        })
+      });
+
+      if(!res.ok){
+        if(res.status===401||res.status===403){showToast('مفتاح API غير صحيح، تحقق منه','error')}
+        else{showToast('حدث خطأ، حاول مجدداً','error')}
+        setLoading(false);
+        setScreen('input');
+        return;
+      }
+
+      const data=await res.json();
+      const txt=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+      let cleaned=txt.trim();
+      if(cleaned.startsWith('```'))cleaned=cleaned.replace(/^```(?:json)?\n?/,'').replace(/\n?```$/,'');
+
+      try{
+        const parsed=JSON.parse(cleaned);
+        setResults(parsed);
+      }catch(e){
+        setRawFallback(txt);
+        showToast('تعذر تحليل الرد، يُعرض كنص خام','warning');
+      }
+    }catch(err){
+      showToast('حدث خطأ في الاتصال، حاول مجدداً','error');
+      setScreen('input');
+    }finally{
+      setLoading(false);
+    }
+  };
+
+  const handleBack=()=>{setResults(null);setRawFallback('');setScreen('input')};
+
+  return(
+    <div className="min-h-screen bg-[#0F0F0F]">
+      {screen==='setup'&&<SetupScreen onSave={handleSaveKey}/>}
+      {screen==='input'&&<InputScreen onGenerate={handleGenerate} onClearKey={handleClearKey}/>}
+      {screen==='results'&&<ResultsScreen loading={loading} results={results} rawFallback={rawFallback} selectedDialects={selDialects} selectedPlatforms={selPlatforms} onBack={handleBack}/>}
+      {toast&&<Toast msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
