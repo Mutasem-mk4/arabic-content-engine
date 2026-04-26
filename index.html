@@ -112,33 +112,37 @@ function SetupScreen({onSave}){
     onSave(k, url.trim(), model.trim());
   };
   return(
-    <div className="min-h-screen flex items-center justify-center p-4 animate-slide-up">
-      <div className="bg-surface border border-sborder rounded-2xl p-8 w-full max-w-md text-center">
-        <div className="text-4xl mb-2">⚡</div>
-        <h1 className="text-2xl font-bold text-gold mb-1">Muharrir</h1>
-        <p className="text-gold/70 text-sm mb-8 font-medium" style={{fontFamily:'system-ui'}}>محرّر المحتوى العربي</p>
+    <div className="min-h-screen flex items-center justify-center p-4 animate-slide-up relative overflow-hidden">
+      {/* Decorative background glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gold/5 rounded-full blur-[120px] pointer-events-none"></div>
+      
+      <div className="bg-surface border border-sborder rounded-3xl p-8 w-full max-w-md text-center relative z-10 shadow-2xl">
+        <button onClick={()=>setShowAdvanced(!showAdvanced)} className="absolute top-4 left-4 text-dim hover:text-gold transition-colors text-xl" title="إعدادات متقدمة (للمطورين)">
+          ⚙
+        </button>
+
+        <div className="w-16 h-16 bg-gold/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-gold/20">
+          <span className="text-3xl">✨</span>
+        </div>
+        <h1 className="text-3xl font-bold text-white mb-1">محرّر</h1>
+        <p className="text-gold/80 text-sm mb-8 font-medium tracking-wide">صُنّاع المحتوى العربي · الجيل القادم</p>
         
         <div dir="rtl" className="mb-4">
-          <label className="block text-sm text-dim mb-2 text-right">أدخل مفتاح الـ API الخاص بك</label>
+          <label className="block text-sm text-dim mb-3 text-right font-medium">مفتاح التفعيل (API Key)</label>
           <input
             type="password"
             value={key}
             onChange={e=>setKey(e.target.value)}
             onKeyDown={e=>e.key==='Enter'&&submit()}
-            placeholder="sk-..."
+            placeholder="أدخل مفتاحك للبدء..."
             dir="ltr"
-            className="w-full bg-[#0F0F0F] border border-sborder rounded-xl px-4 py-3 text-sm text-white placeholder-dim/50 focus:border-gold transition-colors font-mono"
+            className="w-full bg-[#0F0F0F] border border-sborder rounded-2xl px-5 py-4 text-base text-white placeholder-dim/40 focus:border-gold focus:ring-1 focus:ring-gold transition-all font-mono shadow-inner"
           />
         </div>
 
-        <div dir="rtl" className="mb-4">
-          <button onClick={()=>setShowAdvanced(!showAdvanced)} className="text-xs text-dim hover:text-gold transition-colors">
-            {showAdvanced?'إخفاء الإعدادات المتقدمة ▲':'إعدادات متقدمة (API مخصص / Proxy) ▼'}
-          </button>
-        </div>
-
         {showAdvanced && (
-          <div dir="rtl" className="mb-4 space-y-4 p-4 border border-sborder/50 bg-[#0a0a0a] rounded-xl text-right">
+          <div dir="rtl" className="mb-6 space-y-4 p-5 border border-sborder/50 bg-[#0a0a0a] rounded-2xl text-right animate-slide-up">
+            <p className="text-xs text-gold mb-2 font-medium">إعدادات الربط المتقدمة (Proxy / OpenRouter)</p>
             <div>
               <label className="block text-xs text-dim mb-1">رابط الـ API (Endpoint)</label>
               <input
@@ -146,7 +150,7 @@ function SetupScreen({onSave}){
                 value={url}
                 onChange={e=>setUrl(e.target.value)}
                 dir="ltr"
-                className="w-full bg-[#1A1A1A] border border-sborder rounded-lg px-3 py-2 text-xs text-white focus:border-gold transition-colors font-mono"
+                className="w-full bg-[#1A1A1A] border border-sborder rounded-xl px-4 py-3 text-xs text-white focus:border-gold transition-colors font-mono"
               />
             </div>
             <div>
@@ -156,7 +160,7 @@ function SetupScreen({onSave}){
                 value={model}
                 onChange={e=>setModel(e.target.value)}
                 dir="ltr"
-                className="w-full bg-[#1A1A1A] border border-sborder rounded-lg px-3 py-2 text-xs text-white focus:border-gold transition-colors font-mono"
+                className="w-full bg-[#1A1A1A] border border-sborder rounded-xl px-4 py-3 text-xs text-white focus:border-gold transition-colors font-mono"
               />
             </div>
           </div>
@@ -165,9 +169,11 @@ function SetupScreen({onSave}){
         <button
           onClick={submit}
           disabled={key.trim().length<5}
-          className="w-full mt-2 bg-gold hover:bg-gold-h disabled:opacity-30 disabled:cursor-not-allowed text-black font-bold py-3 rounded-xl transition-all text-lg"
-        >ابدأ</button>
-        <p className="text-xs text-dim/60 mt-4">مفتاحك يبقى في متصفحك فقط ولا يُرسل لأي خادم</p>
+          className="w-full mt-4 bg-gold hover:bg-gold-h hover:scale-[1.02] disabled:opacity-30 disabled:hover:scale-100 disabled:cursor-not-allowed text-black font-bold py-4 rounded-2xl transition-all text-lg shadow-lg shadow-gold/20"
+        >الدخول للمنصة</button>
+        <p className="text-xs text-dim/60 mt-5 flex items-center justify-center gap-2">
+          <span>🔒</span> مفتاحك مشفر ويبقى في متصفحك فقط
+        </p>
       </div>
     </div>
   );
@@ -176,10 +182,10 @@ function SetupScreen({onSave}){
 /* ═══════ Chip ═══════ */
 function Chip({label,flag,icon,active,onClick}){
   return(
-    <button onClick={onClick} className={`px-4 py-2 rounded-full border text-sm font-medium transition-all flex items-center gap-2
-      ${active?'bg-gold/20 border-gold text-gold':'bg-transparent border-sborder text-dim hover:border-dim hover:text-white'}`}>
-      {flag&&<span>{flag}</span>}
-      {icon&&<span className="text-xs" dir="ltr">{icon}</span>}
+    <button onClick={onClick} className={`px-5 py-2.5 rounded-2xl border text-sm font-semibold transition-all flex items-center gap-2 select-none active:scale-95
+      ${active?'bg-gold/15 border-gold text-gold shadow-sm shadow-gold/10':'bg-transparent border-sborder text-dim hover:border-dim hover:text-white'}`}>
+      {flag&&<span className="text-base">{flag}</span>}
+      {icon&&<span className="text-sm" dir="ltr">{icon}</span>}
       <span>{label}</span>
     </button>
   );
@@ -188,35 +194,52 @@ function Chip({label,flag,icon,active,onClick}){
 /* ═══════ Input Screen ═══════ */
 function InputScreen({onGenerate,onClearKey}){
   const[content,setContent]=useState('');
-  const[dials,setDials]=useState([]);
-  const[plats,setPlats]=useState([]);
+  // Auto-select all dialects and platforms by default for frictionless UX
+  const[dials,setDials]=useState(DIALECTS.map(d=>d.key));
+  const[plats,setPlats]=useState(PLATFORMS.map(p=>p.key));
+  
   const toggle=(arr,set,key)=>set(arr.includes(key)?arr.filter(x=>x!==key):[...arr,key]);
   const valid=content.trim().length>10&&dials.length>0&&plats.length>0;
 
   return(
-    <div className="min-h-screen animate-slide-up">
+    <div className="min-h-screen animate-slide-up pb-12">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-sborder/50">
-        <button onClick={onClearKey} className="text-dim hover:text-white transition-colors text-lg" title="إعدادات">⚙</button>
-        <h1 className="text-lg font-bold text-gold">محرّر</h1>
+      <div className="flex items-center justify-between px-6 py-4 border-b border-sborder/50 bg-surface/50 backdrop-blur-md sticky top-0 z-40">
+        <button onClick={onClearKey} className="text-dim hover:text-red-400 transition-colors text-sm flex items-center gap-2" title="تسجيل الخروج">
+          <span>تسجيل الخروج</span> <span>🚪</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <h1 className="text-lg font-bold text-white">محرّر</h1>
+          <span className="text-gold text-xl">✨</span>
+        </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
         {/* Textarea */}
-        <div dir="rtl" className="mb-6">
-          <textarea
-            value={content}
-            onChange={e=>setContent(e.target.value)}
-            placeholder="الصق محتواك هنا — مقال، سكريبت فيديو، أو بوست طويل..."
-            className="w-full bg-surface border border-sborder rounded-2xl p-5 text-white text-base leading-[1.8] resize-y focus:border-gold transition-colors placeholder-dim/40 min-h-[200px] md:min-h-[260px]"
-          />
-          <p className="text-xs text-dim/50 mt-1 text-left font-mono" dir="ltr">{content.length} chars</p>
+        <div dir="rtl" className="mb-8">
+          <label className="block text-sm text-white mb-3 font-semibold">المحتوى الأصلي</label>
+          <div className="relative">
+            <textarea
+              value={content}
+              onChange={e=>setContent(e.target.value)}
+              placeholder="انسخ والصق المحتوى هنا (مقال، فكرة، أو نص فيديو)... وسيقوم محرّر بتحويله إلى محتوى فيروسي لكل اللهجات والمنصات بضغطة زر."
+              className="w-full bg-surface/80 border border-sborder rounded-3xl p-6 text-white text-lg leading-[1.8] resize-y focus:border-gold focus:ring-1 focus:ring-gold transition-all placeholder-dim/40 min-h-[220px] shadow-inner"
+            />
+          </div>
+          <div className="flex justify-between items-center mt-2 px-2">
+            <p className="text-xs text-dim/50 font-mono" dir="ltr">{content.length} chars</p>
+            {content.length > 0 && (
+              <button onClick={()=>setContent('')} className="text-xs text-dim hover:text-white transition-colors">مسح النص</button>
+            )}
+          </div>
         </div>
 
         {/* Dialects */}
-        <div className="mb-5" dir="rtl">
-          <p className="text-xs text-dim uppercase tracking-wider mb-3 text-right font-medium">اللهجات</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="mb-6 bg-surface/30 p-5 rounded-3xl border border-sborder/50" dir="rtl">
+          <p className="text-sm text-white mb-4 font-semibold flex items-center gap-2">
+            <span>🌍</span> اللهجات المستهدفة
+          </p>
+          <div className="flex flex-wrap gap-2.5">
             {DIALECTS.map(d=>(
               <Chip key={d.key} label={d.label} flag={d.flag} active={dials.includes(d.key)} onClick={()=>toggle(dials,setDials,d.key)}/>
             ))}
@@ -224,9 +247,11 @@ function InputScreen({onGenerate,onClearKey}){
         </div>
 
         {/* Platforms */}
-        <div className="mb-8" dir="rtl">
-          <p className="text-xs text-dim uppercase tracking-wider mb-3 text-right font-medium">المنصات</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="mb-10 bg-surface/30 p-5 rounded-3xl border border-sborder/50" dir="rtl">
+          <p className="text-sm text-white mb-4 font-semibold flex items-center gap-2">
+            <span>📱</span> المنصات
+          </p>
+          <div className="flex flex-wrap gap-2.5">
             {PLATFORMS.map(p=>(
               <Chip key={p.key} label={p.label} icon={p.icon} active={plats.includes(p.key)} onClick={()=>toggle(plats,setPlats,p.key)}/>
             ))}
@@ -237,8 +262,14 @@ function InputScreen({onGenerate,onClearKey}){
         <button
           onClick={()=>valid&&onGenerate(content,dials,plats)}
           disabled={!valid}
-          className="w-full bg-gold hover:bg-gold-h disabled:opacity-30 disabled:cursor-not-allowed text-black font-bold py-4 rounded-2xl transition-all text-lg"
-        >حوّل المحتوى ✦</button>
+          className="relative w-full group disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <div className="absolute -inset-1 bg-gradient-to-r from-gold to-gold-h rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-200 group-disabled:hidden"></div>
+          <div className="relative w-full bg-gold hover:bg-gold-h text-black font-bold py-5 rounded-2xl transition-all text-xl flex items-center justify-center gap-3 active:scale-[0.98]">
+            <span>✨</span>
+            <span>ابدأ التحويل السحري</span>
+          </div>
+        </button>
       </div>
     </div>
   );
